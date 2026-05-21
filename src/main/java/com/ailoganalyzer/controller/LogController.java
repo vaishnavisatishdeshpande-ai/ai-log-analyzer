@@ -25,6 +25,7 @@ import com.ailoganalyzer.service.metrics.AnalysisMetricsRecorder;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -55,6 +56,49 @@ public class LogController {
         Log saved = logService.saveLog(request);
         analysisService.createPendingAnalysis(saved);
         return ResponseEntity.ok(toDto(saved));
+    }
+
+    @PostMapping("/upload")
+    public ResponseEntity<String> uploadLogFile(@RequestParam("file") MultipartFile file) {
+
+        try {
+            String content = new String(file.getBytes());
+
+            List<String> lines = content.lines().toList();
+
+            for (String line : lines) {
+
+                if (line.isBlank()) {
+                    continue;
+                }
+
+                LogEntryDTO dto = new LogEntryDTO();
+
+                dto.setServiceName("BulkUploadService");
+
+                if (line.contains("CRITICAL")) {
+                    dto.setLevel("CRITICAL");
+                } else if (line.contains("ERROR")) {
+                    dto.setLevel("ERROR");
+                } else if (line.contains("WARN")) {
+                    dto.setLevel("WARN");
+                } else {
+                    dto.setLevel("INFO");
+                }
+
+                dto.setMessage(line);
+                dto.setTimestamp(java.time.LocalDateTime.now());
+
+                Log saved = logService.saveLog(dto);
+                analysisService.createPendingAnalysis(saved);
+            }
+
+            return ResponseEntity.ok("Log file processed successfully");
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Failed to process log file: " + e.getMessage());
+        }
     }
 
     @GetMapping

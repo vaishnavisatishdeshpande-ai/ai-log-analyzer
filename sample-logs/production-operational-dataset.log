@@ -1,0 +1,78 @@
+2026-05-21 09:10:01 INFO  [AuthService] User authentication successful for userId=USR-10342 sessionId=SES-99213
+2026-05-21 09:10:02 INFO  [PaymentService] Payment request initiated transactionId=TXN-771291 amount=2499 currency=INR
+2026-05-21 09:10:03 INFO  [InventoryService] Inventory check passed for sku=SKU-IPHONE15 qty=1
+2026-05-21 09:10:04 INFO  [GatewayService] Upstream response received status=200 latencyMs=143
+2026-05-21 09:10:05 INFO  [NotificationService] Email notification queued notificationId=NTF-77312
+2026-05-21 09:10:06 INFO  [MetricsCollector] JVM heap usage stable used=812MB max=2048MB
+2026-05-21 09:10:07 INFO  [SearchService] Elasticsearch query completed hits=218 latencyMs=92
+2026-05-21 09:10:08 INFO  [ApiGateway] Request completed status=200 method=GET path=/api/v1/products latencyMs=67
+2026-05-21 09:10:09 INFO  [CacheService] Redis cache hit key=product:SKU-IPHONE15
+
+2026-05-21 10:15:11 ERROR [OrderService] Failed to persist order transactionId=TXN-882921
+org.postgresql.util.PSQLException: FATAL: remaining connection slots are reserved for non-replication superuser connections
+    at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2675)
+    at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2365)
+2026-05-21 10:15:12 WARN  [HikariPool] Connection is not available, request timed out after 30000ms.
+2026-05-21 10:15:13 ERROR [TransactionManager] Transaction rollback initiated transactionId=TXN-882921
+2026-05-21 10:15:14 CRITICAL [DatabaseMonitor] Database connection pool exhaustion detected activeConnections=100 waitingThreads=42
+
+2026-05-21T11:04:12Z kubelet Warning BackOff Back-off restarting failed container
+2026-05-21T11:04:13Z kubelet Error Error syncing pod, skipping err="failed to start container"
+2026-05-21T11:04:15Z kubelet Warning FailedMount Unable to attach or mount volumes
+2026-05-21T11:04:18Z kubelet Warning OOMKilled Container api-service exceeded memory limit memory=512Mi
+2026-05-21T11:04:20Z kubelet Warning CrashLoopBackOff Back-off restarting failed container=api-service
+2026-05-21T11:04:22Z scheduler Warning FailedScheduling 0/6 nodes are available: insufficient cpu
+
+2026-05-21 12:02:01 INFO  [AnalysisWorker] Processing analysis job jobId=JOB-44191
+2026-05-21 12:02:02 INFO  [OpenAIClient] Submitting log batch for AI classification batchId=BATCH-8812
+2026-05-21 12:02:17 ERROR [OpenAIClient] OpenAI request timeout after 15000ms requestId=REQ-99812
+java.net.SocketTimeoutException: Read timed out
+    at java.base/sun.nio.ch.NioSocketImpl.timedRead(NioSocketImpl.java:278)
+2026-05-21 12:02:18 WARN  [RetryExecutor] Retry attempt 1/3 for batchId=BATCH-8812
+2026-05-21 12:02:24 WARN  [RetryExecutor] Retry attempt 2/3 for batchId=BATCH-8812
+2026-05-21 12:02:31 ERROR [RetryExecutor] Retry attempts exhausted batchId=BATCH-8812
+2026-05-21 12:02:31 WARN  [FallbackRuleEngine] AI analysis unavailable, switching to deterministic severity rules
+2026-05-21 12:02:31 INFO  [SeverityOrchestrator] Severity classified as HIGH using fallback policy errorType=TIMEOUT
+2026-05-21 12:02:32 INFO  [AnalysisWorker] Analysis completed using fallback engine jobId=JOB-44191
+
+2026-05-21 13:18:09 ERROR [IngressController] Failed to deserialize request payload requestId=REQ-441122
+com.fasterxml.jackson.core.JsonParseException: Unexpected character ('}' (code 125))
+2026-05-21 13:18:10 WARN  [ValidationService] Request validation failed field=eventType reason=NULL_VALUE
+2026-05-21 13:18:10 INFO  [SecurityAudit] Suspicious malformed request detected sourceIp=172.18.0.12
+2026-05-21 13:18:11 ERROR [ApiGateway] Returning HTTP 400 response requestId=REQ-441122
+
+2026/05/21 15:02:08 [error] 31#31: *184 upstream prematurely closed connection while reading response header from upstream
+2026/05/21 15:02:09 [warn] 31#31: upstream server temporarily disabled while connecting to upstream
+2026/05/21 15:02:10 [error] 31#31: connect() failed (111: Connection refused) while connecting to upstream
+2026/05/21 15:02:11 [info] 31#31: client 10.0.2.14 closed keepalive connection
+
+2026-05-21 16:11:22 ERROR [NodeReplicationService] Failed to replicate partition partitionId=PART-991 node=node-4
+java.net.ConnectException: Connection refused
+2026-05-21 16:11:23 WARN  [ClusterCoordinator] Heartbeat missing from node=node-4 elapsedMs=30012
+2026-05-21 16:11:25 ERROR [ConsensusManager] Quorum lost activeNodes=2 requiredNodes=3
+2026-05-21 16:11:26 CRITICAL [FailoverManager] Initiating leader re-election due to quorum instability
+
+2026-05-21 14:00:01 INFO  [ApiGateway] Request received method=POST path=/checkout
+2026-05-21 14:00:02 INFO  [AuthService] JWT validation successful userId=USR-88321
+2026-05-21 14:00:03 WARN  [RedisCache] Cache miss key=cart:USR-88321
+2026-05-21 14:00:04 INFO  [InventoryService] Inventory lock acquired sku=SKU-PIXEL9 qty=1
+2026-05-21 14:00:05 ERROR [PaymentGateway] Upstream payment provider returned HTTP 502
+2026-05-21 14:00:05 WARN  [RetryExecutor] Scheduling retry transactionId=TXN-99211 retryAttempt=1
+2026-05-21 14:00:07 INFO  [RetryExecutor] Retry successful transactionId=TXN-99211
+2026-05-21 14:00:08 INFO  [MetricsCollector] API latency percentile p95=212ms
+2026-05-21 14:00:09 WARN  [DiskMonitor] Disk usage exceeded threshold usage=88%
+2026-05-21 14:00:10 ERROR [SearchService] Elasticsearch cluster state degraded nodesAvailable=2 nodesExpected=3
+2026-05-21 14:00:12 INFO  [BackgroundJobRunner] Scheduled cleanup task completed durationMs=883
+2026-05-21 14:00:13 WARN  [KafkaConsumer] Consumer lag detected lag=1842 topic=log-analysis-events
+2026-05-21 14:00:14 ERROR [NotificationService] SMTP connection refused host=smtp.internal.local
+2026-05-21 14:00:15 INFO  [HealthCheckService] Service health status=DEGRADED
+
+2026-05-21 16:11:22 ERROR [NodeReplicationService] Failed to replicate partition partitionId=PART-991 node=node-4
+java.net.ConnectException: Connection refused
+    at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+    at java.base/sun.nio.ch.Net.pollConnectNow(Net.java:672)
+    at java.base/sun.nio.ch.NioSocketImpl.timedFinishConnect(NioSocketImpl.java:547)
+
+2026-05-21 16:11:23 WARN  [ClusterCoordinator] Heartbeat missing from node=node-4 elapsedMs=30012
+2026-05-21 16:11:25 ERROR [ConsensusManager] Quorum lost activeNodes=2 requiredNodes=3
+2026-05-21 16:11:26 CRITICAL [FailoverManager] Initiating leader re-election due to quorum instability

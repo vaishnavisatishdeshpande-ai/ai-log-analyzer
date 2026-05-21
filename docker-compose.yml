@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+
+  app:
+    build: .
+    container_name: ai-log-analyzer
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+
+    container_name: ai-log-db
+
+    environment:
+      POSTGRES_DB: ailogs
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      - "5432:5432"

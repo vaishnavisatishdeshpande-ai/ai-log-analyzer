@@ -1,14 +1,61 @@
 # AI Log Analyzer
 
-In production environments, when something breaks, the first response is almost always the same — open the documentation, search through logs manually, and try to piece together what happened. In high-volume systems, this can take hours.
+In production environments, when something breaks, the first response is almost always the same — open documentation, search through logs manually, and try to piece together what happened.
 
-This system takes a raw production log, runs it through an AI analysis pipeline, and returns a structured root cause, suggested fix, severity classification, and confidence score — in seconds, not hours.
+In high-volume systems, this process can take hours.
 
-The engineering focus was not the AI. It was making the AI reliable in production.
+AI Log Analyzer ingests raw operational logs, runs them through an asynchronous AI analysis pipeline, and returns:
+
+- Root cause analysis
+- Suggested remediation
+- Severity classification
+- Confidence scoring
+- Workflow status tracking
+
+The engineering focus was not just the AI.
+
+The focus was making the AI reliable in production.
 
 ---
 
-## What This System Produces
+# Features
+
+- Async non-blocking log analysis
+- AI-powered incident analysis
+- Deterministic fallback rule engine
+- Severity classification
+- Bulk operational log ingestion
+- Dockerized deployment
+- PostgreSQL persistence
+- REST APIs for polling + retrieval
+- Production-style operational dataset support
+- Graceful degradation during AI failures
+
+---
+
+# Architecture
+
+```text
+Operational Logs
+        ↓
+Bulk Upload API
+        ↓
+Async Analysis Pipeline
+        ↓
+AI Log Analysis Service
+        ↓
+Fallback Rule Engine
+        ↓
+Severity Classification
+        ↓
+PostgreSQL Persistence
+        ↓
+REST Retrieval APIs
+```
+
+---
+
+# What This System Produces
 
 ```json
 {
@@ -20,46 +67,54 @@ The engineering focus was not the AI. It was making the AI reliable in productio
   "confidence": 0.85,
   "source": "AI",
   "status": "COMPLETED",
-  "reason": "Pattern matched: timeout|timed out|exceeded",
   "createdAt": "2025-04-08T10:30:00",
   "completedAt": "2025-04-08T10:30:05"
 }
 ```
 
-Not just a log dump. A structured decision.
+Not just a log dump. A structured operational decision.
 
 ---
 
-## Problem
+# Problem
 
 When a production incident occurs, engineers typically:
 
 - Manually search through thousands of log lines
-- Open Confluence documentation written months ago
+- Open outdated documentation
 - Guess at root causes under pressure
-- Spend hours in war rooms for issues that follow known patterns
+- Spend hours in incident war rooms for repeatable issues
 
-**The cost:** slow response, high toil, repeated mistakes.
+The cost:
+- slow response
+- operational toil
+- repeated mistakes
+- delayed recovery
 
-**The gap:** most AI log tools are synchronous, fragile, and fail silently when the AI model is unavailable or returns an inconsistent response.
+Most AI log tools are:
+- synchronous
+- fragile
+- unable to recover when the AI layer fails
 
 ---
 
-## Solution
+# Solution
 
-An async, production-grade log analysis pipeline built on Java and Spring Boot.
+A resilient async log analysis pipeline built with Java + Spring Boot.
 
 Core design goals:
-- Non-blocking — analysis runs in the background, API returns in under 100ms
-- Reliable — AI failures fall back to a rule engine automatically
-- Consistent — single DB write per analysis, no duplicate or partial state
-- Observable — every analysis stage is instrumented with Prometheus metrics
+
+- Non-blocking
+- Reliable
+- Observable
+- Recoverable
+- Production-oriented
 
 ---
 
-## System Pipeline
+# System Pipeline
 
-```
+```text
 Log Submission (POST /logs)
         ↓
 Create Log Record
@@ -68,15 +123,17 @@ Submit Async Analysis (POST /logs/{id}/analysis)
         ↓ HTTP 202 — returns immediately
 Background Worker picks up job
         ↓
-Rate Limiter (30 req/min)
+AI Analysis
         ↓
-Circuit Breaker (50% failure threshold)
-        ↓
-        ├── AI Analysis (2-5 seconds)
+        ├── AI Success
         │       ↓
-        │   Hybrid Severity Enrichment
+        │   Structured Incident Analysis
         │
-        └── Rule Engine Fallback (<5ms)
+        └── AI Failure
+                ↓
+        Rule Engine Fallback
+                ↓
+        Severity Classification
                 ↓
         Single DB Write → COMPLETED
         ↓
@@ -85,163 +142,230 @@ Poll for result (GET /logs/{id}/analysis)
 
 ---
 
-## Key Engineering Decisions
+# Key Engineering Decisions
 
-### 1. Async Processing — 10,000x Throughput Improvement
+## 1. Async Processing
 
-Synchronous log analysis blocks threads for 2-5 seconds per request.
+Synchronous AI analysis blocks request threads for multiple seconds.
 
-```
-Before (blocking):   1 request per 5 seconds = 0.2 req/s
-After (async):       100 requests in 50ms    = 2,000 req/s
-```
+This platform processes analysis asynchronously.
 
-Every analysis submission returns HTTP 202 immediately. The client polls for completion.
+Benefits:
+- higher throughput
+- lower request latency
+- reduced timeout risk
+- better concurrency handling
+- isolation of AI latency
 
-### 2. Fallback to Rule Engine
-
-LLMs fail. They time out, return malformed responses, or hallucinate confidently.
-
-This system handles that explicitly:
-- Circuit breaker opens at 50% failure rate
-- Rule engine takes over in under 5ms
-- Client never sees a failure — they see a result with `"source": "RULE"`
-
-### 3. Single Consistent DB Write
-
-A common failure mode in async systems: the worker crashes mid-analysis and writes partial state, creating inconsistent records.
-
-This system enforces one atomic DB write per analysis lifecycle. Status transitions are strict: `PENDING → PROCESSING → COMPLETED/FAILED`. No partial updates.
-
-### 4. Hybrid Severity Classification
-
-Severity is not determined by the AI alone. A hybrid engine combines:
-- AI confidence score
-- Rule-based pattern matching
-- Log level (ERROR, WARN, INFO)
-
-This prevents the AI from under-classifying critical failures when confidence is low.
-
-### 5. Observability Built In
-
-Every stage is instrumented:
-
-| Metric | What it tracks |
-|---|---|
-| `analysis.job.count` | Submission rate |
-| `analysis.success.count` | Completion rate |
-| `analysis.failure.count` | Error rate |
-| `analysis.ai.latency` | AI response time (p95, p99) |
-| `analysis.severity` | Distribution by severity level |
+The API immediately returns `PENDING` while analysis continues in the background.
 
 ---
 
-## API Reference
+## 2. Fallback Rule Engine
 
-### Submit a log for analysis
+LLMs fail:
+- timeouts
+- malformed responses
+- API outages
+- inconsistent outputs
 
-```bash
-# Step 1: Create log
-POST /logs
-{
-  "serviceName": "payment-service",
-  "level": "ERROR",
-  "message": "OutOfMemory exception in BillingService"
-}
+This system explicitly handles AI failure.
 
-# Step 2: Submit async analysis
-POST /logs/{id}/analysis
-# Returns HTTP 202 immediately
+When AI becomes unavailable:
+- fallback classification activates automatically
+- deterministic severity rules execute
+- workflow still completes successfully
+- client still receives a usable result
 
-# Step 3: Poll for result
-GET /logs/{id}/analysis
-```
-
-### Status lifecycle
-
-```
-PENDING → PROCESSING → COMPLETED
-                    ↘ FAILED
-```
-
-### Example completed response
+Example fallback response:
 
 ```json
 {
+  "source": "RULE",
   "status": "COMPLETED",
-  "severity": "CRITICAL",
-  "confidence": 0.95,
-  "analysis": "OutOfMemory error detected in BillingService...",
-  "possibleFix": "Increase heap allocation. Review object lifecycle in billing loop.",
-  "source": "AI",
-  "completedAt": "2025-04-08T10:30:05"
+  "severity": "HIGH",
+  "analysis": "AI unavailable. Fallback rule engine classified this log deterministically."
 }
 ```
 
 ---
 
-## Tech Stack
+## 3. Single Consistent DB Write
 
-| Layer | Technology | Why |
-|---|---|---|
-| Backend | Java, Spring Boot | Production-grade async processing |
-| AI Layer | LLM via REST | Root cause reasoning |
-| Fallback | Rule Engine | Reliability when AI fails |
-| Database | PostgreSQL | Consistent state persistence |
-| Observability | Prometheus, Actuator | Latency and failure tracking |
-| Resilience | Circuit Breaker, Rate Limiter | Production-grade failure handling |
+Async systems commonly produce:
+- duplicate records
+- partial state
+- inconsistent workflows
 
----
+This system enforces:
+- strict status transitions
+- atomic analysis updates
+- one analysis lifecycle per log
 
-## Running the System
+Status lifecycle:
 
-```bash
-# Clone the repo
-git clone https://github.com/vaishnavisatishdeshpande-ai/ai-log-analyzer
-
-# Start the application
-./mvnw spring-boot:run
-
-# Validate the setup
-curl -s http://localhost:8080/actuator/health | jq '.status'
-
-# Create a test log
-curl -X POST http://localhost:8080/logs \
-  -H "Content-Type: application/json" \
-  -d '{"serviceName":"test-service","level":"ERROR","message":"Heap space exceeded"}'
-
-# Submit for analysis
-curl -X POST http://localhost:8080/logs/1/analysis
-
-# Poll for result
-curl http://localhost:8080/logs/1/analysis
+```text
+PENDING → COMPLETED
 ```
 
 ---
 
-## What I Learned Building This
+## 4. Hybrid Severity Classification
 
-The hardest problems had nothing to do with AI:
+Severity is not determined solely by the AI.
 
-- **LLMs hallucinate confidently** — you need a fallback that triggers before the client sees a bad result
-- **Async state is subtle** — without strict status transitions, you get ghost records and duplicate writes
-- **Observability has to be designed in** — adding metrics after the fact means you miss the failures that matter
-- **Throughput is an architecture decision** — async processing changed request capacity by 10,000x, not a tuning parameter
+Classification combines:
+- AI output
+- deterministic rule matching
+- operational keyword detection
+- log severity context
 
----
-
-## Future Improvements
-
-- Feedback loop — mark analyses as correct/incorrect to improve rule matching
-- MLflow integration — version and track rule engine model updates  
-- Multi-log correlation — detect patterns across related services
-- Webhook support — push results instead of polling
-- Streaming ingestion via Kafka
+This prevents critical failures from being under-classified.
 
 ---
 
-## Related Project
+# Tech Stack
 
-This system works alongside the [Intelligent Incident Detection System](https://github.com/vaishnavisatishdeshpande-ai/intelligent-incident-system) — which detects anomalies before they become incidents using real-time Kafka streams, Feast, and XGBoost.
+| Layer | Technology |
+|---|---|
+| Backend | Java 21, Spring Boot |
+| AI Layer | Spring AI |
+| Database | PostgreSQL |
+| Local Dev DB | H2 |
+| Build Tool | Maven |
+| Containerization | Docker |
+| Observability | Spring Actuator |
 
-Together: **detect early → explain clearly → respond fast**
+---
+
+# Quick Start
+
+## Run With Docker
+
+```bash
+docker compose up --build
+```
+
+Application:
+```text
+http://localhost:8080
+```
+
+---
+
+# Upload Operational Dataset
+
+```bash
+curl -X POST http://localhost:8080/logs/upload \
+-F "file=@sample-logs/production-operational-dataset.log"
+```
+
+---
+
+# API Reference
+
+## Create Log
+
+```http
+POST /logs
+```
+
+## Bulk Upload Logs
+
+```http
+POST /logs/upload
+```
+
+## Trigger Async Analysis
+
+```http
+POST /logs/{id}/analysis
+```
+
+## Poll Analysis Status
+
+```http
+GET /logs/{id}/analysis
+```
+
+## Retrieve All Logs
+
+```http
+GET /logs
+```
+
+---
+
+# Sample Operational Logs
+
+This repository includes curated production-style operational logs simulating:
+
+- PostgreSQL connection pool exhaustion
+- Kubernetes CrashLoopBackOff events
+- OpenAI timeout failures
+- distributed quorum instability
+- Kafka consumer lag
+- Nginx upstream failures
+- malformed payload handling
+- rule-engine fallback activation
+
+Dataset location:
+
+```text
+sample-logs/production-operational-dataset.log
+```
+
+---
+
+# Example Workflow
+
+1. Upload operational logs
+2. API returns immediately
+3. Analysis status becomes `PENDING`
+4. Background worker processes logs
+5. AI analysis completes
+6. If AI fails, fallback engine activates
+7. Final result persisted in PostgreSQL
+
+---
+
+# Running Locally
+
+```bash
+./mvnw spring-boot:run
+```
+
+---
+
+# Future Improvements
+
+- Kafka ingestion
+- OpenTelemetry tracing
+- Prometheus metrics
+- Grafana dashboards
+- Kubernetes deployment
+- distributed worker queues
+- webhook callbacks instead of polling
+
+---
+
+# Demo
+
+Demo walkthrough available in:
+
+```text
+demo/
+```
+
+---
+
+# What I Learned Building This
+
+The hardest problems had nothing to do with AI.
+
+Key lessons:
+- AI systems need deterministic recovery paths
+- async workflows require strict state handling
+- observability must be designed in early
+- resilience matters more than model quality
+- throughput is an architecture decision

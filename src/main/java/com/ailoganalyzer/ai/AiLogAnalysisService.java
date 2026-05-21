@@ -88,13 +88,45 @@ public class AiLogAnalysisService {
 
         } catch (Exception e) {
 
-            analysis.setStatus(AnalysisStatus.FAILED);
-            analysis.setAnalysis("AI processing failed");
+            analysis.setStatus(AnalysisStatus.COMPLETED);
+
+            analysis.setAnalysis(
+                    "AI unavailable. Fallback rule engine classified this log deterministically."
+            );
+
+            analysis.setPossibleFix(
+                    "Inspect service health, retry failed operations, and verify infrastructure dependencies."
+            );
+
+            String message = log.getMessage().toLowerCase();
+
+            if (message.contains("critical")
+                    || message.contains("quorum")
+                    || message.contains("outofmemory")
+                    || message.contains("crashloopbackoff")) {
+
+                analysis.setSeverity(Severity.CRITICAL);
+
+            } else if (message.contains("error")
+                    || message.contains("timeout")
+                    || message.contains("connection refused")) {
+
+                analysis.setSeverity(Severity.HIGH);
+
+            } else if (message.contains("warn")) {
+
+                analysis.setSeverity(Severity.MEDIUM);
+
+            } else {
+
+                analysis.setSeverity(Severity.LOW);
+            }
+
+            analysis.setConfidence(0.65);
+            analysis.setSource(AnalysisSource.RULE);
             analysis.setCompletedAt(LocalDateTime.now());
 
             repository.save(analysis);
-
-            throw new AnalysisException("AI analysis failed", e);
         }
     }
 
