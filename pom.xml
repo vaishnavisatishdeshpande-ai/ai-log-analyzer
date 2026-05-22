@@ -76,6 +76,13 @@
             <optional>true</optional>
         </dependency>
 
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+            <version>4.2.0</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- DevTools (optional for local dev) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

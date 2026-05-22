@@ -9,12 +9,10 @@ import java.util.List;
 
 @Service
 public class LogService {
-    private final AnalysisService analysisService;
 
     private final LogRepository logRepository;
 
-    public LogService(AnalysisService analysisService, LogRepository logRepository) {
-        this.analysisService = analysisService;
+    public LogService(LogRepository logRepository) {
         this.logRepository = logRepository;
     }
 
@@ -26,8 +24,13 @@ public class LogService {
         return logRepository.findAll();
     }
 
-    public List<Log> getLogsByServiceName(String serviceName) {
-        return logRepository.findByServiceName(serviceName);
+    public List<Log> getLogsByServiceName(
+            String serviceName
+    ) {
+
+        return logRepository.findByServiceName(
+                serviceName
+        );
     }
 
     public void deleteLog(Long id) {
@@ -35,17 +38,25 @@ public class LogService {
     }
 
     public Log getLogById(Long id) {
+
         return logRepository.findById(id)
-                .orElseThrow(() -> new LogNotFoundException("Log not found with id: " + id));
+                .orElseThrow(() ->
+                        new LogNotFoundException(
+                                "Log not found with id: " + id
+                        )
+                );
     }
 
-    public Log saveLog(com.ailoganalyzer.dto.LogEntryDTO dto) {
-        var log = new Log();
+    public Log saveLog(
+            com.ailoganalyzer.dto.LogEntryDTO dto
+    ) {
+
+        Log log = new Log();
+
         log.setServiceName(dto.getServiceName());
         log.setLevel(dto.getLevel());
         log.setMessage(dto.getMessage());
+
         return logRepository.save(log);
     }
-
-
 }

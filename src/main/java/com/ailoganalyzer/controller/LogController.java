@@ -132,13 +132,16 @@ public class LogController {
     }
 
     @PostMapping("/{id}/analysis")
-    public ResponseEntity<LogAnalysisDTO> analyzeAsync(@PathVariable Long id) {
+    public ResponseEntity<String> analyzeAsync(@PathVariable Long id) {
+
         Log log = logService.getLogById(id);
-        aiService.analyzeAndUpdate(log);
-        LogAnalysis updatedAnalysis = analysisService.getLatestAnalysis(id);
-        LogAnalysisDTO responseDto = toDto(updatedAnalysis); // convert to DTO
-        return ResponseEntity.ok(responseDto);
+
+        jobPublisher.publish(log.getId());
+
+        return ResponseEntity.accepted()
+                .body("Analysis job accepted for processing");
     }
+
     @GetMapping("/{id}/analysis")
     public ResponseEntity<LogAnalysisDTO> getAnalysis(@PathVariable Long id) {
         LogAnalysis analysis = analysisService.getAnalysis(id);

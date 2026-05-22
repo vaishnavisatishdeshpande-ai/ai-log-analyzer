@@ -30,6 +30,7 @@
         @Column(length = 2000)
         private String possibleFix;
 
+
         @Enumerated(EnumType.STRING)
         private Severity severity;
 
@@ -37,7 +38,8 @@
 
         @Enumerated(EnumType.STRING)
         private AnalysisSource source;
-
+        @Column(nullable = false, unique = true)
+        private String correlationId;
         @Enumerated(EnumType.STRING)
         private AnalysisStatus status = AnalysisStatus.PENDING;
 
