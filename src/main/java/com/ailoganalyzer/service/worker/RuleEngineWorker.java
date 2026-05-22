@@ -4,112 +4,90 @@ import com.ailoganalyzer.entity.Log;
 import com.ailoganalyzer.entity.LogAnalysis;
 import com.ailoganalyzer.enums.AnalysisSource;
 import com.ailoganalyzer.enums.Severity;
-import com.ailoganalyzer.constant.AnalysisConstants;
+import com.ailoganalyzer.service.rule.RuleEngineService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import java.util.regex.Pattern;
 
 /**
- * Optimized rule engine for pattern matching.
- *
- * Improvements:
- * - Precompiled regex patterns for efficiency
- * - Lowercase normalization done once
- * - Hierarchical pattern matching (critical -> high -> low)
- * - Extensible design for future optimization (Aho-Corasick, etc.)
+ * Deterministic rule-based analysis worker.
+ * Delegates pattern matching to RuleEngineService (config-driven).
+ * Always succeeds — this is the fallback guarantee.
  */
 @Service
 public class RuleEngineWorker {
 
-    private static final Logger logger = LoggerFactory.getLogger(RuleEngineWorker.class);
+    private static final Logger logger =
+            LoggerFactory.getLogger(RuleEngineWorker.class);
 
-    // Precompiled patterns for efficiency (avoid recompilation on each call)
-    private static final Pattern CRITICAL_MEMORY_PATTERN = Pattern.compile("outofmemory|oom|heap|out of memory", Pattern.CASE_INSENSITIVE);
-    private static final Pattern CRITICAL_CRASH_PATTERN = Pattern.compile("crash|fatal error|segmentation fault", Pattern.CASE_INSENSITIVE);
-    private static final Pattern HIGH_TIMEOUT_PATTERN = Pattern.compile("timeout|timed out|exceeded|deadlock", Pattern.CASE_INSENSITIVE);
-    private static final Pattern HIGH_ERROR_PATTERN = Pattern.compile("exception|error occurred|critical error", Pattern.CASE_INSENSITIVE);
-    private static final Pattern MEDIUM_WARN_PATTERN = Pattern.compile("warn|warning|deprecated", Pattern.CASE_INSENSITIVE);
+    private final RuleEngineService ruleEngine;
 
-    /**
-     * Analyzes a log message using optimized rule patterns.
-     * Returns immediately without blocking.
-     *
-     * @param log the log to analyze
-     * @return the analysis result with severity
-     */
-    public LogAnalysis analyze(Log log) {
-        String message = log.getMessage();
-        if (message == null || message.isEmpty()) {
-            return createDefaultAnalysis(log);
-        }
-
-        // Normalize once
-        String normalizedMessage = message.toLowerCase();
-
-        LogAnalysis analysis = new LogAnalysis();
-        analysis.setLog(log);
-        analysis.setSource(AnalysisSource.RULE);
-
-        // Check CRITICAL patterns first
-        if (CRITICAL_MEMORY_PATTERN.matcher(normalizedMessage).find()) {
-            analysis.setSeverity(Severity.CRITICAL);
-            analysis.setConfidence(0.95);
-            analysis.setAnalysis(AnalysisConstants.CRITICAL_MEMORY_ANALYSIS);
-            analysis.setPossibleFix(AnalysisConstants.CRITICAL_MEMORY_FIX);
-            return analysis;
-        }
-
-        if (CRITICAL_CRASH_PATTERN.matcher(normalizedMessage).find()) {
-            analysis.setSeverity(Severity.CRITICAL);
-            analysis.setConfidence(0.93);
-            analysis.setAnalysis("Application crash or fatal error detected");
-            analysis.setPossibleFix("Restart the service and review recent deployments");
-            return analysis;
-        }
-
-        // Check HIGH patterns
-        if (HIGH_TIMEOUT_PATTERN.matcher(normalizedMessage).find()) {
-            analysis.setSeverity(Severity.HIGH);
-            analysis.setConfidence(0.85);
-            analysis.setAnalysis(AnalysisConstants.TIMEOUT_ANALYSIS);
-            analysis.setPossibleFix(AnalysisConstants.TIMEOUT_FIX);
-            return analysis;
-        }
-
-        if (HIGH_ERROR_PATTERN.matcher(normalizedMessage).find()) {
-            analysis.setSeverity(Severity.HIGH);
-            analysis.setConfidence(0.80);
-            analysis.setAnalysis("Error condition detected that requires attention");
-            analysis.setPossibleFix("Review error logs and check system health");
-            return analysis;
-        }
-
-        // Check MEDIUM patterns
-        if (MEDIUM_WARN_PATTERN.matcher(normalizedMessage).find()) {
-            analysis.setSeverity(Severity.MEDIUM);
-            analysis.setConfidence(0.70);
-            analysis.setAnalysis("Warning or deprecation notice");
-            analysis.setPossibleFix("Review and update as needed");
-            return analysis;
-        }
-
-        // Default to LOW
-        return createDefaultAnalysis(log);
+    public RuleEngineWorker(RuleEngineService ruleEngine) {
+        this.ruleEngine = ruleEngine;
     }
 
-    /**
-     * Creates a default LOW severity analysis
-     */
-    private LogAnalysis createDefaultAnalysis(Log log) {
+    public LogAnalysis analyze(Log log) {
+
+        RuleEngineService.RuleResult result =
+                ruleEngine.analyze(log.getMessage());
+
         LogAnalysis analysis = new LogAnalysis();
+
         analysis.setLog(log);
         analysis.setSource(AnalysisSource.RULE);
-        analysis.setSeverity(Severity.LOW);
-        analysis.setConfidence(0.60);
-        analysis.setAnalysis(AnalysisConstants.LOW_SEVERITY_ANALYSIS);
-        analysis.setPossibleFix(AnalysisConstants.LOW_SEVERITY_FIX);
+        analysis.setSeverity(result.severity);
+        analysis.setConfidence(result.confidence);
+
+        analysis.setAnalysis(buildAnalysisText(result));
+        analysis.setPossibleFix(buildFixText(result));
+
+        logger.debug(
+                "Rule engine classified logId={} as {} (confidence={})",
+                log.getId(),
+                result.severity,
+                result.confidence
+        );
+
         return analysis;
     }
-}
 
+    private String buildAnalysisText(
+            RuleEngineService.RuleResult result
+    ) {
+
+        return switch (result.severity) {
+
+            case CRITICAL ->
+                    "Critical system failure detected. Immediate attention required.";
+
+            case HIGH ->
+                    "Significant operational issue detected requiring investigation.";
+
+            case MEDIUM ->
+                    "Warning condition detected. Monitor for escalation.";
+
+            case LOW ->
+                    "Informational log entry. No immediate action required.";
+        };
+    }
+
+    private String buildFixText(
+            RuleEngineService.RuleResult result
+    ) {
+
+        return switch (result.severity) {
+
+            case CRITICAL ->
+                    "Restart affected services, check resource limits, review recent deployments.";
+
+            case HIGH ->
+                    "Check service health, review connection pools, verify external dependencies.";
+
+            case MEDIUM ->
+                    "Review and update as needed. Consider adding monitoring alerts.";
+
+            case LOW ->
+                    "No action required. Continue monitoring.";
+        };
+    }
+}

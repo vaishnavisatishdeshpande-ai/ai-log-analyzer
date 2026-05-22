@@ -14,6 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 /**
  * Service for managing log analysis operations.
  *
@@ -45,11 +47,10 @@ public class AnalysisService {
      * @return LogAnalysis with PENDING status
      */
     public LogAnalysis createPendingAnalysis(Log log) {
-        System.out.println("--------------------1");
         LogAnalysis analysis = new LogAnalysis();
         analysis.setLog(log);
         analysis.setStatus(AnalysisStatus.PENDING);
-        System.out.println("--------------------1" +analysis.getStatus());
+        analysis.setCorrelationId(UUID.randomUUID().toString());
         return repository.save(analysis);
     }
 

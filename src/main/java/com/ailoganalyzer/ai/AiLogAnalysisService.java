@@ -7,13 +7,14 @@ import com.ailoganalyzer.enums.AnalysisSource;
 import com.ailoganalyzer.enums.AnalysisStatus;
 import com.ailoganalyzer.enums.Severity;
 import com.ailoganalyzer.exception.AnalysisException;
-import com.ailoganalyzer.repository.LogAnalysisRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 
@@ -23,16 +24,15 @@ public class AiLogAnalysisService {
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
     private final AiPromptConfig promptConfig;
-    private final LogAnalysisRepository repository;
+    private static final Logger logger =
+            LoggerFactory.getLogger(AiLogAnalysisService.class);
 
     public AiLogAnalysisService(ChatClient.Builder builder,
                                 ObjectMapper objectMapper,
-                                AiPromptConfig promptConfig,
-                                LogAnalysisRepository repository) {
+                                AiPromptConfig promptConfig) {
         this.chatClient = builder.build();
         this.objectMapper = objectMapper;
         this.promptConfig = promptConfig;
-        this.repository = repository;
     }
 
     /**
@@ -43,93 +43,6 @@ public class AiLogAnalysisService {
      */
     @Async
     @Transactional
-    public void analyzeAndUpdate(Log log) {
-        LogAnalysis analysis = repository.findByLogIdOrderByCreatedAtDesc(log.getId())
-                .orElseThrow(() ->
-                        new AnalysisException("No pending analysis found for logId: " + log.getId()));
-        System.out.println("Log ID: " + log.getId());
-        try {
-            String prompt = promptConfig.buildPrompt(log.getMessage());
-
-            String response = chatClient.prompt()
-                    .user(prompt)
-                    .call()
-                    .content();
-
-            response = response.replace("```json", "")
-                    .replace("```", "")
-                    .trim();
-
-            JsonNode json = objectMapper.readTree(response);
-            analysis.setAnalysis(json.get("analysis").asText());
-            analysis.setAnalysis(getSafeText(json, "analysis"));
-            analysis.setPossibleFix(getSafeText(json, "possibleFix"));
-            analysis.setConfidence(getSafeDouble(json, "confidence"));
-            analysis.setConfidence(json.get("confidence").asDouble());
-            analysis.setSource(AnalysisSource.AI);
-            analysis.setStatus(AnalysisStatus.COMPLETED);
-            analysis.setCompletedAt(LocalDateTime.now());
-            String severityStr = getSafeText(json, "severity");
-
-            if (severityStr != null) {
-                try {
-                    analysis.setSeverity(
-                            Severity.valueOf(severityStr.trim().toUpperCase())
-                    );
-                } catch (Exception e) {
-                    System.out.println("Invalid severity from AI: " + severityStr);
-                    analysis.setSeverity(Severity.MEDIUM);
-                }
-            } else {
-                analysis.setSeverity(Severity.MEDIUM);
-            }
-
-            repository.save(analysis);
-
-        } catch (Exception e) {
-
-            analysis.setStatus(AnalysisStatus.COMPLETED);
-
-            analysis.setAnalysis(
-                    "AI unavailable. Fallback rule engine classified this log deterministically."
-            );
-
-            analysis.setPossibleFix(
-                    "Inspect service health, retry failed operations, and verify infrastructure dependencies."
-            );
-
-            String message = log.getMessage().toLowerCase();
-
-            if (message.contains("critical")
-                    || message.contains("quorum")
-                    || message.contains("outofmemory")
-                    || message.contains("crashloopbackoff")) {
-
-                analysis.setSeverity(Severity.CRITICAL);
-
-            } else if (message.contains("error")
-                    || message.contains("timeout")
-                    || message.contains("connection refused")) {
-
-                analysis.setSeverity(Severity.HIGH);
-
-            } else if (message.contains("warn")) {
-
-                analysis.setSeverity(Severity.MEDIUM);
-
-            } else {
-
-                analysis.setSeverity(Severity.LOW);
-            }
-
-            analysis.setConfidence(0.65);
-            analysis.setSource(AnalysisSource.RULE);
-            analysis.setCompletedAt(LocalDateTime.now());
-
-            repository.save(analysis);
-        }
-    }
-
     private String getSafeText(JsonNode json, String field) {
         return json.has(field) && !json.get(field).isNull()
                 ? json.get(field).asText()
@@ -163,13 +76,25 @@ public class AiLogAnalysisService {
             JsonNode json = objectMapper.readTree(response);
 
             LogAnalysis analysis = new LogAnalysis();
-            analysis.setAnalysis(json.get("analysis").asText());
-            analysis.setPossibleFix(json.get("possibleFix").asText());
-            analysis.setSeverity(
-                    Severity.valueOf(json.get("severity").asText().toUpperCase())
-            );
-            analysis.setConfidence(json.get("confidence").asDouble());
+
+            analysis.setAnalysis(getSafeText(json, "analysis"));
+            analysis.setPossibleFix(getSafeText(json, "possibleFix"));
+            analysis.setConfidence(getSafeDouble(json, "confidence"));
             analysis.setSource(AnalysisSource.AI);
+
+            String severityStr = getSafeText(json, "severity");
+
+            try {
+                analysis.setSeverity(
+                        Severity.valueOf(severityStr.trim().toUpperCase())
+                );
+            } catch (Exception e) {
+                logger.warn(
+                        "Invalid severity from AI response: '{}', defaulting to MEDIUM",
+                        severityStr
+                );
+                analysis.setSeverity(Severity.MEDIUM);
+            }
 
             return analysis;
 
